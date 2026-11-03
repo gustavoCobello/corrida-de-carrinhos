@@ -20,8 +20,9 @@
       <img id="video-stream" class="video-stream" src="{{ url_for('video_feed') }}" alt="Transmissão ao vivo da webcam na linha de chegada" loading="eager">
       <div id="video-placeholder" class="video-placeholder">
         <div class="spinner" aria-hidden="true"></div>
-        <p>Iniciando a câmera</p>
-        <span>A primeira imagem pode levar alguns segundos.</span>
+        <p id="placeholder-title">Iniciando a câmera</p>
+        <span id="placeholder-hint">A primeira imagem pode levar alguns segundos.</span>
+        <button id="browser-camera-start" class="btn is-primary hidden" type="button">Ativar câmera deste dispositivo</button>
         <span class="credit">Gustavo Henrique Cobello Lima · 3°A · Nº 12</span>
       </div>
     </div>
@@ -57,6 +58,9 @@
             <a class="icon-btn" href="{{ url_for('setup') }}" title="Calibrar pista" aria-label="Calibrar pista">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/></svg>
             </a>
+            <button id="browser-camera-btn" class="icon-btn hidden" type="button" title="Ativar câmera do dispositivo" aria-label="Câmera do dispositivo" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            </button>
             <button id="details-btn" class="icon-btn" type="button" title="Ver detalhes" aria-label="Ver detalhes">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg>
             </button>

@@ -186,7 +186,12 @@ def _draw_demo_car(
 class CameraStream:
     """Uma unica thread mantem o ultimo frame e publica para os clientes."""
 
-    def __init__(self, config: dict[str, Any], demo: bool = False) -> None:
+    def __init__(
+        self,
+        config: dict[str, Any],
+        demo: bool = False,
+        external: bool = False,
+    ) -> None:
         camera = config.get("camera", {})
         self.index = int(camera.get("index", 0))
         self.backend = str(camera.get("backend", "dshow")).lower()
@@ -195,6 +200,10 @@ class CameraStream:
         self.process_width = int(camera.get("process_width", 960))
         self.process_height = int(camera.get("process_height", 540))
         self.demo = bool(demo or camera.get("demo", False))
+        self.external = bool(external) and not self.demo
+        self.source = (
+            "demo" if self.demo else "browser" if self.external else "webcam"
+        )
 
         self._condition = threading.Condition()
         self._stop_event = threading.Event()
@@ -208,7 +217,11 @@ class CameraStream:
         self._last_frame_at: float | None = None
         self._status = "starting"
         self._error: str | None = None
-        self._capture_size = (self.capture_width, self.capture_height)
+        self._capture_size = (
+            (self.process_width, self.process_height)
+            if self.external
+            else (self.capture_width, self.capture_height)
+        )
         self._frame_callback: Callable[[np.ndarray, float], None] | None = None
         self._callback_error_logged = False
 
@@ -226,7 +239,12 @@ class CameraStream:
             self._status = "starting"
             self._error = None
             self._stop_event.clear()
-            target = self._run_demo if self.demo else self._run_camera
+            if self.demo:
+                target = self._run_demo
+            elif self.external:
+                target = self._run_external
+            else:
+                target = self._run_camera
             self._thread = threading.Thread(
                 target=target,
                 name="camera-stream",
@@ -261,7 +279,7 @@ class CameraStream:
                 )
             return {
                 "status": self._status,
-                "source": "demo" if self.demo else "webcam",
+                "source": self.source,
                 "index": self.index,
                 "running": self._running,
                 "fps": round(float(self._fps), 1),
@@ -281,6 +299,13 @@ class CameraStream:
             if self._frame is None:
                 return None
             return self._frame.copy()
+
+    def push_frame(self, frame: np.ndarray) -> None:
+        if not self.external or not self._running:
+            return
+        if frame is None or getattr(frame, "size", 0) == 0:
+            return
+        self._publish(frame)
 
     def wait_for_frame(
         self,
@@ -421,6 +446,37 @@ class CameraStream:
             capture.release()
             if self._stop_event.wait(0.5):
                 break
+
+        with self._condition:
+            self._status = "offline"
+            self._running = False
+            self._condition.notify_all()
+
+    def _run_external(self) -> None:
+        with self._condition:
+            self._status = "starting"
+            self._error = None
+            self._condition.notify_all()
+
+        started = time.monotonic()
+        while self._running and not self._stop_event.is_set():
+            with self._condition:
+                self._condition.wait(1.0)
+                last_frame_ts = self._last_frame_ts
+                status = self._status
+
+            now = time.monotonic()
+            if last_frame_ts is not None:
+                if now - last_frame_ts > 6.0 and status != "offline":
+                    self._set_offline(
+                        "Câmera do navegador sem enviar imagens. "
+                        "Reative a câmera neste dispositivo."
+                    )
+            elif now - started > 20.0 and status != "offline":
+                self._set_offline(
+                    "Aguardando a câmera do navegador. "
+                    "Ative a câmera neste dispositivo."
+                )
 
         with self._condition:
             self._status = "offline"

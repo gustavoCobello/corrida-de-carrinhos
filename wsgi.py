@@ -6,4 +6,8 @@ import os
 
 from app import create_app
 
-app = create_app(demo=os.environ.get("DEMO", "1") != "0")
+source = os.environ.get("CAMERA_SOURCE")
+if not source:
+    source = "demo" if os.environ.get("DEMO", "1") != "0" else "webcam"
+
+app = create_app(source=source)

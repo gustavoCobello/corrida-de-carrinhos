@@ -4,7 +4,7 @@ Reconhecimento de carrinhos de brinquedo por webcam na linha de chegada. O siste
 
 ![Interface em modo de demonstração](static/img/preview.png)
 
-**Site publicado:** <https://corrida-de-carrinhos.onrender.com> (modo demonstração, sem webcam).
+**Site publicado:** <https://corrida-de-carrinhos.onrender.com> (câmera do dispositivo).
 
 ## Status
 
@@ -126,13 +126,18 @@ Use as teclas **1-4** para trocar de cor, clique na imagem para amostrar um tom,
 
 ## Publicação
 
-O site pode rodar em qualquer host com Docker ou Python. No host público o modo demonstração é ativado (`DEMO=1`), porque o servidor remoto não tem acesso à webcam local.
+O site pode rodar em qualquer host com Docker ou Python. Como o servidor remoto não tem webcam física, o host público usa `CAMERA_SOURCE=browser`: o navegador do aparelho que está na linha de chegada envia os frames reais da câmera para o servidor, que faz a detecção, o ranking e devolve o vídeo processado para todos os espectadores.
+
+1. Abra o site no aparelho que ficará apontado para a pista (celular ou notebook com webcam).
+2. Clique em **Ativar câmera deste dispositivo** e permita o acesso.
+3. Calibre a linha em `/setup` (mantenha a primeira aba aberta enviando os frames).
 
 - **Render (recomendado):** crie um Blueprint apontando para este repositório; o `render.yaml` configura o serviço Docker gratuito com health check em `/api/health`.
 - **Docker local:** `docker build -t corrida-de-carrinhos .` e `docker run -p 8000:8000 corrida-de-carrinhos`.
 - **Railway/Heroku:** o `Procfile` já inicia o gunicorn na porta `$PORT`.
+- **Demo sintética:** use `CAMERA_SOURCE=demo` (ou `python app.py --demo`) para testar sem câmera.
 
-Para usar a webcam de verdade na feira, rode `python app.py` na máquina local; a versão hospedada permanece no modo demonstração.
+Para usar a webcam local diretamente, rode `python app.py` na máquina da feira.
 
 ## Roadmap
 

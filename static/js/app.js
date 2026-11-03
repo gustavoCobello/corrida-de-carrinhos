@@ -32,6 +32,10 @@
     fullscreenLabel: document.getElementById("fullscreen-label"),
     soundToggle: document.getElementById("sound-toggle"),
     soundLabel: document.getElementById("sound-label"),
+    browserCameraBtn: document.getElementById("browser-camera-btn"),
+    browserCameraStart: document.getElementById("browser-camera-start"),
+    placeholderTitle: document.getElementById("placeholder-title"),
+    placeholderHint: document.getElementById("placeholder-hint"),
     controlsNote: document.getElementById("controls-note"),
     cameraSource: document.getElementById("camera-source"),
     cameraIndex: document.getElementById("camera-index"),
@@ -73,6 +77,17 @@
   let podiumSignature = "";
   let audioContext = null;
   let soundEnabled = true;
+  let lastCameraSource = "webcam";
+  let lastCameraStreaming = false;
+  const browserCamera = {
+    active: false,
+    stream: null,
+    video: null,
+    canvas: null,
+    context: null,
+    timer: null,
+    sending: false,
+  };
 
   try {
     soundEnabled = window.localStorage.getItem("toy-car-race-sound") !== "off";
@@ -270,6 +285,180 @@
     }
   }
 
+  function updateBrowserCameraUi() {
+    const isBrowser = lastCameraSource === "browser";
+
+    if (elements.browserCameraBtn) {
+      elements.browserCameraBtn.classList.toggle("hidden", !isBrowser);
+      elements.browserCameraBtn.classList.toggle("is-active", browserCamera.active);
+      elements.browserCameraBtn.setAttribute(
+        "aria-pressed",
+        browserCamera.active ? "true" : "false",
+      );
+      elements.browserCameraBtn.title = browserCamera.active
+        ? "Desligar câmera do dispositivo"
+        : "Ativar câmera do dispositivo";
+    }
+
+    if (elements.browserCameraStart) {
+      const show = isBrowser && !streamVisible;
+      elements.browserCameraStart.classList.toggle("hidden", !show);
+      elements.browserCameraStart.textContent = browserCamera.active
+        ? "Desligar câmera"
+        : "Ativar câmera deste dispositivo";
+    }
+
+    if (elements.placeholderTitle && isBrowser) {
+      elements.placeholderTitle.textContent = browserCamera.active
+        ? "Conectando câmera"
+        : "Câmera do dispositivo";
+    }
+    if (elements.placeholderHint && isBrowser) {
+      elements.placeholderHint.textContent = browserCamera.active
+        ? "Enviando imagens para o servidor..."
+        : "Ative a câmera deste dispositivo para começar.";
+    }
+  }
+
+  async function startBrowserCamera() {
+    if (browserCamera.active) {
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showToast("Este navegador não oferece acesso à câmera.", true);
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+      const video = document.createElement("video");
+      video.className = "sr";
+      video.muted = true;
+      video.playsInline = true;
+      video.srcObject = stream;
+      document.body.append(video);
+      await video.play();
+
+      const canvas = document.createElement("canvas");
+      canvas.width = 960;
+      canvas.height = 540;
+
+      browserCamera.stream = stream;
+      browserCamera.video = video;
+      browserCamera.canvas = canvas;
+      browserCamera.context = canvas.getContext("2d");
+      browserCamera.active = true;
+      browserCamera.sending = false;
+      browserCamera.timer = window.setInterval(
+        sendBrowserFrame,
+        1000 / 12,
+      );
+
+      stream.getVideoTracks().forEach((track) => {
+        track.addEventListener("ended", stopBrowserCamera);
+      });
+
+      updateBrowserCameraUi();
+      showToast("Câmera do dispositivo ativada.");
+    } catch (error) {
+      showToast(
+        "Não foi possível acessar a câmera. Verifique a permissão.",
+        true,
+      );
+    }
+  }
+
+  function stopBrowserCamera() {
+    if (browserCamera.timer) {
+      window.clearInterval(browserCamera.timer);
+      browserCamera.timer = null;
+    }
+    if (browserCamera.stream) {
+      browserCamera.stream.getTracks().forEach((track) => track.stop());
+    }
+    if (browserCamera.video) {
+      browserCamera.video.remove();
+    }
+    browserCamera.stream = null;
+    browserCamera.video = null;
+    browserCamera.canvas = null;
+    browserCamera.context = null;
+    browserCamera.active = false;
+    browserCamera.sending = false;
+    updateBrowserCameraUi();
+  }
+
+  async function sendBrowserFrame() {
+    const state = browserCamera;
+    if (
+      !state.active ||
+      state.sending ||
+      !state.video ||
+      !state.context ||
+      state.video.readyState < 2
+    ) {
+      return;
+    }
+    if (!state.video.videoWidth || !state.video.videoHeight) {
+      return;
+    }
+
+    state.sending = true;
+    try {
+      const { video, canvas, context } = state;
+      const scale = Math.max(
+        canvas.width / video.videoWidth,
+        canvas.height / video.videoHeight,
+      );
+      const sourceWidth = canvas.width / scale;
+      const sourceHeight = canvas.height / scale;
+      const sourceX = (video.videoWidth - sourceWidth) / 2;
+      const sourceY = (video.videoHeight - sourceHeight) / 2;
+
+      context.drawImage(
+        video,
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      );
+
+      const blob = await new Promise((resolve) => {
+        canvas.toBlob(resolve, "image/jpeg", 0.72);
+      });
+      if (!blob) {
+        return;
+      }
+      await fetch("/api/camera/frame", {
+        method: "POST",
+        headers: { "Content-Type": "image/jpeg" },
+        body: blob,
+      });
+    } catch (error) {
+      // Falhas pontuais são refletidas no status da câmera pelo polling.
+    } finally {
+      state.sending = false;
+    }
+  }
+
+  function toggleBrowserCamera() {
+    if (browserCamera.active) {
+      stopBrowserCamera();
+    } else {
+      startBrowserCamera();
+    }
+  }
+
   function updateColorGrid(colors) {
     if (!Array.isArray(colors) || colors.length === 0) {
       return;
@@ -370,6 +559,9 @@
   function updateCamera(state) {
     const camera = state.camera || {};
     const streaming = camera.status === "streaming";
+    const source = camera.source || "webcam";
+    lastCameraSource = source;
+    lastCameraStreaming = streaming;
 
     if (streaming) {
       setStatus("live", "Ao vivo");
@@ -384,9 +576,13 @@
       camera.width && camera.height ? `${camera.width}×${camera.height}` : "--";
 
     elements.cameraSource.textContent =
-      camera.source === "demo" ? "Demonstração" : "Webcam";
+      source === "demo"
+        ? "Demonstração"
+        : source === "browser"
+          ? "Câmera do navegador"
+          : "Webcam";
     elements.cameraIndex.textContent =
-      camera.source === "demo" ? "—" : String(camera.index ?? "--");
+      source === "webcam" ? String(camera.index ?? "--") : "—";
     elements.cameraCapture.textContent =
       camera.capture_width && camera.capture_height
         ? `${camera.capture_width}×${camera.capture_height}`
@@ -397,7 +593,8 @@
         : "--";
     elements.cameraLine.textContent = formatLine(state.config?.line);
 
-    elements.sourceBadge.textContent = camera.source === "demo" ? "DEMO" : "WEBCAM";
+    elements.sourceBadge.textContent =
+      source === "demo" ? "DEMO" : source === "browser" ? "BROWSER" : "WEBCAM";
 
     if (camera.error) {
       elements.cameraError.textContent = camera.error;
@@ -409,20 +606,34 @@
 
     if (streaming) {
       elements.videoSubtitle.textContent =
-        camera.source === "demo"
+        source === "demo"
           ? "Pista sintética de demonstração em tempo real"
-          : "Transmissão da linha de chegada em tempo real";
+          : source === "browser"
+            ? "Câmera do dispositivo processada no servidor"
+            : "Transmissão da linha de chegada em tempo real";
     } else if (camera.status === "offline") {
-      elements.videoSubtitle.textContent = "Sem sinal da câmera";
+      elements.videoSubtitle.textContent =
+        source === "browser"
+          ? "Ative a câmera deste dispositivo"
+          : "Sem sinal da câmera";
     } else {
-      elements.videoSubtitle.textContent = "Aguardando a primeira imagem da câmera";
+      elements.videoSubtitle.textContent =
+        source === "browser"
+          ? "Aguardando a câmera deste dispositivo"
+          : "Aguardando a primeira imagem da câmera";
     }
 
     if (streaming && !streamVisible) {
       streamVisible = true;
       elements.videoStream.classList.add("is-visible");
       elements.videoPlaceholder.classList.add("is-hidden");
+    } else if (source === "browser" && !streaming && !browserCamera.active) {
+      streamVisible = false;
+      elements.videoStream.classList.remove("is-visible");
+      elements.videoPlaceholder.classList.remove("is-hidden");
     }
+
+    updateBrowserCameraUi();
   }
 
   function emptyState(title, detail) {
@@ -895,20 +1106,31 @@
   elements.resetButton.addEventListener("click", () => runAction("/api/race/reset"));
   elements.fullscreenButton.addEventListener("click", toggleFullscreen);
   elements.soundToggle.addEventListener("click", toggleSound);
+  elements.browserCameraBtn?.addEventListener("click", toggleBrowserCamera);
+  elements.browserCameraStart?.addEventListener("click", toggleBrowserCamera);
   document.addEventListener("fullscreenchange", () => {
     updateFullscreenButton();
   });
 
   elements.videoStream.addEventListener("load", () => {
+    if (
+      lastCameraSource === "browser" &&
+      !lastCameraStreaming &&
+      !browserCamera.active
+    ) {
+      return;
+    }
     streamVisible = true;
     elements.videoStream.classList.add("is-visible");
     elements.videoPlaceholder.classList.add("is-hidden");
+    updateBrowserCameraUi();
   });
 
   elements.videoStream.addEventListener("error", () => {
     streamVisible = false;
     elements.videoStream.classList.remove("is-visible");
     elements.videoPlaceholder.classList.remove("is-hidden");
+    updateBrowserCameraUi();
   });
 
   updateSoundToggle();

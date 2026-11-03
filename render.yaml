@@ -6,5 +6,5 @@ services:
     autoDeploy: true
     healthCheckPath: /api/health
     envVars:
-      - key: DEMO
-        value: "1"
+      - key: CAMERA_SOURCE
+        value: browser

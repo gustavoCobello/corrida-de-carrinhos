@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any, Iterator
 
 import cv2
+import numpy as np
 from flask import Flask, Response, jsonify, render_template, request
 
 from src.camera import CameraStream
@@ -91,7 +92,15 @@ def create_app(
     demo: bool = False,
     camera_index: int | None = None,
     config_store: ConfigStore | None = None,
+    source: str | None = None,
 ) -> Flask:
+    if source is None:
+        source = "demo" if demo else "webcam"
+    source = str(source).strip().lower()
+    if source not in {"demo", "webcam", "browser"}:
+        source = "webcam"
+    demo = source == "demo"
+
     config_store = config_store or ConfigStore()
     config = config_store.snapshot()
 
@@ -103,13 +112,18 @@ def create_app(
         }
 
     pipeline = VisionPipeline(config_store)
-    camera = CameraStream(camera_config, demo=demo)
+    camera = CameraStream(
+        camera_config,
+        demo=demo,
+        external=source == "browser",
+    )
     camera.set_frame_callback(pipeline.process)
     camera.start()
     atexit.register(camera.stop)
 
     app = Flask(__name__)
     app.json.sort_keys = False
+    app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
     app.extensions["camera"] = camera
     app.extensions["config_store"] = config_store
     app.extensions["pipeline"] = pipeline
@@ -176,6 +190,19 @@ def create_app(
                 "detections": vision["detections"],
             }
         )
+
+    @app.post("/api/camera/frame")
+    def api_camera_frame() -> Response:
+        if not camera.external:
+            return jsonify({"error": "A fonte de câmera não é o navegador."}), 409
+        payload = request.get_data(cache=False)
+        if not payload or len(payload) > 8 * 1024 * 1024:
+            return jsonify({"error": "Frame inválido."}), 400
+        frame = cv2.imdecode(np.frombuffer(payload, np.uint8), cv2.IMREAD_COLOR)
+        if frame is None:
+            return jsonify({"error": "JPEG inválido."}), 400
+        camera.push_frame(frame)
+        return "", 204
 
     @app.get("/api/config")
     def api_config() -> Response:
@@ -324,6 +351,11 @@ def main() -> None:
         help="Usa uma pista sintetica, sem webcam",
     )
     parser.add_argument(
+        "--source",
+        choices=("webcam", "demo", "browser"),
+        help="Fonte de video: webcam local, demo sintetica ou camera do navegador",
+    )
+    parser.add_argument(
         "--camera-index",
         type=int,
         help="Sobrescreve o indice da webcam",
@@ -345,17 +377,27 @@ def main() -> None:
     host = args.host or snapshot["server"]["host"]
     port = args.port or snapshot["server"]["port"]
 
+    source = args.source
+    if source is None:
+        source = "demo" if args.demo else "webcam"
+
     app = create_app(
-        demo=args.demo,
+        demo=source == "demo",
         camera_index=args.camera_index,
         config_store=config_store,
+        source=source,
     )
     camera = app.extensions["camera"]
+    source_label = {
+        "demo": "demo",
+        "browser": "camera do navegador",
+        "webcam": f"webcam {camera.index}",
+    }.get(camera.source, camera.source)
     LOGGER.info(
         "Servidor em http://%s:%s (fonte: %s)",
         host,
         port,
-        "demo" if camera.demo else f"webcam {camera.index}",
+        source_label,
     )
     try:
         app.run(
