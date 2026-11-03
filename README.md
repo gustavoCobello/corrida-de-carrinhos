@@ -38,6 +38,7 @@ Reconhecimento de carrinhos de brinquedo por webcam na linha de chegada. O siste
 - API local de estado, configuração e corrida (`/api/state`, `/api/config`, `/api/race/*`, `/api/health`).
 - Configuração em `config.example.json` + `config.local.json`, com merge recursivo e recarga automática.
 - Modo de demonstração (`--demo`) para testar a interface sem webcam.
+- Modo publicado com a câmera do navegador: o aparelho na linha de chegada envia os frames reais para o servidor processar.
 - Tratamento de câmera indisponível sem derrubar o servidor.
 
 ## Stack
