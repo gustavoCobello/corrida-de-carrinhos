@@ -4,6 +4,8 @@ Reconhecimento de carrinhos de brinquedo por webcam na linha de chegada. O siste
 
 ![Interface em modo de demonstração](static/img/preview.png)
 
+**Site publicado:** <https://corrida-de-carrinhos.onrender.com> (modo demonstração, sem webcam).
+
 ## Status
 
 **Fase 4 concluída** — captura, servidor, interface ao vivo, calibração, detecção por cor, sorteio de 3 carros, cruzamento da linha, ranking, tempos, pódio animado, som de chegada, progresso por carro, tela cheia e layout responsivo. A tela principal foi redesenhada em Bento Grid claro, com tipografia self-hosted e suporte a movimento reduzido. A próxima etapa é a suíte de testes, o checklist com webcam real e a publicação (Fase 5).
