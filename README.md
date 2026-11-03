@@ -129,7 +129,7 @@ Use as teclas **1-4** para trocar de cor, clique na imagem para amostrar um tom,
 O site pode rodar em qualquer host com Docker ou Python. Como o servidor remoto não tem webcam física, o host público usa `CAMERA_SOURCE=browser`: o navegador do aparelho que está na linha de chegada envia os frames reais da câmera para o servidor, que faz a detecção, o ranking e devolve o vídeo processado para todos os espectadores.
 
 1. Abra o site no aparelho que ficará apontado para a pista (celular ou notebook com webcam).
-2. Clique em **Ativar câmera deste dispositivo** e permita o acesso.
+2. Clique em **Ativar câmera deste dispositivo** e permita o acesso. No celular, use o aparelho na horizontal e mantenha a tela ligada.
 3. Calibre a linha em `/setup` (mantenha a primeira aba aberta enviando os frames).
 
 - **Render (recomendado):** crie um Blueprint apontando para este repositório; o `render.yaml` configura o serviço Docker gratuito com health check em `/api/health`.
