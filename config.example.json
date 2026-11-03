@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "camera": {
+    "index": 0,
+    "backend": "dshow",
+    "width": 1280,
+    "height": 720,
+    "process_width": 960,
+    "process_height": 540
+  },
+  "finish_line": {
+    "p1": [0.15, 0.75],
+    "p2": [0.85, 0.75]
+  },
+  "roi": {
+    "x": 0.0,
+    "y": 0.0,
+    "w": 1.0,
+    "h": 1.0
+  },
+  "colors": {
+    "vermelho": {
+      "label": "Vermelho",
+      "bgr": [53, 57, 229],
+      "hsv_ranges": [
+        [[0, 120, 70], [8, 255, 255]],
+        [[172, 120, 70], [179, 255, 255]]
+      ]
+    },
+    "verde": {
+      "label": "Verde",
+      "bgr": [71, 160, 67],
+      "hsv_ranges": [
+        [[40, 80, 50], [85, 255, 255]]
+      ]
+    },
+    "azul": {
+      "label": "Azul",
+      "bgr": [229, 136, 30],
+      "hsv_ranges": [
+        [[100, 100, 50], [130, 255, 255]]
+      ]
+    },
+    "rosa": {
+      "label": "Rosa",
+      "bgr": [122, 64, 236],
+      "hsv_ranges": [
+        [[145, 60, 100], [172, 255, 255]]
+      ]
+    }
+  },
+  "race": {
+    "cars_per_race": 3,
+    "confirm_frames": 2,
+    "min_area_px": 400
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 5000,
+    "poll_ms": 200
+  },
+  "debug": false
+}

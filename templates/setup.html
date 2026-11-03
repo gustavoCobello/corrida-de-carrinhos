@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#14543f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Calibração · Corrida de carrinhos</title>
+  <meta name="description" content="Calibração da linha de chegada e da área de interesse.">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/setup.css') }}">
+</head>
+<body class="setup" data-poll-ms="{{ poll_ms }}">
+  <main class="stage">
+    <div class="cal-wrap">
+      <div id="calibration-frame" class="calibration-frame">
+        <img id="setup-stream" src="{{ url_for('video_feed') }}?overlay=0" alt="Imagem ao vivo da câmera para calibração">
+        <canvas id="setup-canvas" aria-label="Sobreposição de calibração da pista"></canvas>
+        <div id="stream-placeholder" class="video-placeholder">
+          <div class="spinner" aria-hidden="true"></div>
+          <p>Conectando à câmera</p>
+          <span>A imagem aparece assim que o primeiro frame chegar.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hud">
+      <div class="topline">
+        <div class="notch">
+          <a class="brand" href="{{ url_for('index') }}" aria-label="Voltar ao painel">
+            <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+            <span class="brand-copy">
+              <span class="eyebrow">Calibração · Feira de Física</span>
+              <h1 class="brand-title">Linha de chegada</h1>
+            </span>
+          </a>
+          <div id="camera-pill" class="status-pill status-pill--waiting" aria-live="polite">
+            <span class="status-dot"></span><span id="camera-status-label">Conectando</span>
+          </div>
+        </div>
+        <div class="tools">
+          <div class="tool-row">
+            <div class="mode-switch" role="tablist" aria-label="O que calibrar">
+              <button id="mode-line" class="mode-btn is-active" type="button" data-mode="line" role="tab" aria-selected="true">Linha</button>
+              <button id="mode-roi" class="mode-btn" type="button" data-mode="roi" role="tab" aria-selected="false">Área</button>
+            </div>
+            <button id="details-btn" class="icon-btn" type="button" aria-label="Ver detalhes">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg>
+            </button>
+            <a class="icon-btn" href="{{ url_for('index') }}" aria-label="Voltar ao painel" title="Voltar ao painel">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <section class="hud-side hud-readout" aria-label="Pontos">
+        <div class="readout"><span>Ponto 1</span><strong id="point-1">--</strong></div>
+        <div class="readout"><span>Ponto 2</span><strong id="point-2">--</strong></div>
+        <span id="step-badge" class="tag">Passo 1 de 2</span>
+      </section>
+
+      <p id="setup-hint" class="callout setup-hint">Toque no primeiro ponto da linha de chegada.</p>
+      <div class="setup-actions">
+        <button id="clear-btn" class="btn btn-ghost" type="button" disabled>Limpar</button>
+        <button id="save-btn" class="btn is-primary" type="button" disabled>Salvar linha</button>
+      </div>
+    </div>
+
+    <div id="scrim" class="scrim"></div>
+    <aside id="sheet" class="sheet" aria-label="Detalhes" inert>
+      <div class="sheet-head">
+        <div class="tabs" role="tablist">
+          <button class="tab" type="button" role="tab" data-tab="reading" aria-selected="true">Leitura</button>
+          <button class="tab" type="button" role="tab" data-tab="camera" aria-selected="false">Câmera</button>
+          <button class="tab" type="button" role="tab" data-tab="colors" aria-selected="false">Cores</button>
+          <button class="tab" type="button" role="tab" data-tab="credits" aria-selected="false">Créditos</button>
+        </div>
+        <button id="sheet-close" class="icon-btn" type="button" aria-label="Fechar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <section data-panel="reading">
+        <h2>Leitura</h2>
+        <dl class="info-list">
+          <div><dt>Resultado</dt><dd id="result-readout">--</dd></div>
+          <div><dt>Em pixels</dt><dd id="pixel-readout">--</dd></div>
+        </dl>
+        <p id="save-note" class="muted small">Toque em dois pontos para liberar o salvamento.</p>
+        <p class="muted small">A linha e a ROI são salvas em <code>config.local.json</code> e aplicadas ao vídeo na hora.</p>
+      </section>
+
+      <section data-panel="camera" hidden>
+        <h2>Câmera</h2>
+        <span id="camera-fps" class="tag">-- FPS</span>
+        <dl class="info-list">
+          <div><dt>Fonte</dt><dd id="camera-source">--</dd></div>
+          <div><dt>Captura</dt><dd id="camera-capture">--</dd></div>
+          <div><dt>Processamento</dt><dd id="camera-process">--</dd></div>
+          <div><dt>Linha salva</dt><dd id="saved-line">--</dd></div>
+          <div><dt>ROI salva</dt><dd id="saved-roi">--</dd></div>
+          <div><dt>Hora do servidor</dt><dd id="server-clock">--:--:--</dd></div>
+        </dl>
+        <span id="source-badge" class="video-badge" style="margin-top:1em">WEBCAM</span>
+        <span id="live-badge" class="video-badge is-offline" style="margin-top:1em"><span class="live-dot"></span><span id="live-label">SEM SINAL</span></span>
+        <p id="camera-error" class="alert hidden"></p>
+      </section>
+
+      <section data-panel="colors" hidden>
+        <h2>Cores (HSV)</h2>
+        <p class="muted small">Para calibrar as faixas de cor, pare o servidor e rode:</p>
+        <code class="command">python tools/calibrate.py</code>
+        <p class="muted small">Use as teclas <strong>1-4</strong> para trocar de cor, ajuste os sliders e pressione <strong>s</strong> para salvar. Depois reinicie o servidor.</p>
+      </section>
+      <section data-panel="credits" hidden>
+        <h2>Créditos</h2>
+        <p class="credits"><strong>Gustavo Henrique Cobello Lima</strong>3°A · Nº 12</p>
+        <p class="credits"><strong>Feira de Física</strong>Trabalho para a Professora Roberta</p>
+      </section>
+    </aside>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script>
+    window.__SETUP_INITIAL__ = {
+      line: {{ line | tojson }},
+      roi: {{ roi | tojson }},
+      process: [{{ process_width }}, {{ process_height }}]
+    };
+  </script>
+  <script src="{{ url_for('static', filename='js/setup.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/sheet.js') }}"></script>
+</body>
+</html>
