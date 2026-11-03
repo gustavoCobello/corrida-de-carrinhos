@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: corrida-de-carrinhos
+    runtime: docker
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      - key: DEMO
+        value: "1"

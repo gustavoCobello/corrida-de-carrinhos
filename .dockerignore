@@ -1,0 +1,14 @@
+.git
+.gitignore
+.venv
+venv
+__pycache__
+*.py[cod]
+config.local.json
+captures
+recordings
+*.log
+Journal
+tests
+tools
+.opencode

@@ -122,6 +122,16 @@ python tools/calibrate.py
 
 Use as teclas **1-4** para trocar de cor, clique na imagem para amostrar um tom, ajuste os sliders e pressione **s** para salvar. O parâmetro `--demo` abre a pista sintética para testar a ferramenta sem webcam.
 
+## Publicação
+
+O site pode rodar em qualquer host com Docker ou Python. No host público o modo demonstração é ativado (`DEMO=1`), porque o servidor remoto não tem acesso à webcam local.
+
+- **Render (recomendado):** crie um Blueprint apontando para este repositório; o `render.yaml` configura o serviço Docker gratuito com health check em `/api/health`.
+- **Docker local:** `docker build -t corrida-de-carrinhos .` e `docker run -p 8000:8000 corrida-de-carrinhos`.
+- **Railway/Heroku:** o `Procfile` já inicia o gunicorn na porta `$PORT`.
+
+Para usar a webcam de verdade na feira, rode `python app.py` na máquina local; a versão hospedada permanece no modo demonstração.
+
 ## Roadmap
 
 - [x] Fase 0 — estrutura do repositório e documentação
